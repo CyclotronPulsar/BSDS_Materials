@@ -1,31 +1,4 @@
-<!--
-Single-file GitHub Pages File Manager
-Drop this file at the root of your repo (e.g. /index.html) and enable GitHub Pages.
 
-Change owner/repo/branch below in the CONFIG section if needed.
-
-Features:
-- Uses GitHub REST API to fetch the repo tree (recursive)
-- Shows only top-level folders on the main page
-- Clicking a folder toggles into a folder "subpage" (SPA, no reload)
-- Breadcrumbs, back button, accessible toggles
-- PDF files open in-browser via embedded iframe (raw.githubusercontent.com)
-- Text/Markdown/code preview in a modal
-- Keyboard-accessible controls and ARIA attributes
-- Dark-blue theme, white text, responsive
-
-Limitations & Notes:
-- This implementation uses the public GitHub REST API (rate-limited for unauthenticated requests).
-  If you hit rate limits, you'll see a message with a fallback suggestion.
-- For very large trees, rendering is lazy: nested items render only when expanded.
-- Single-file only — no external CSS/JS or libraries used.
-
-How to deploy to GitHub Pages (short):
-1. Put this file as `index.html` in the repo root on branch `main`.
-2. In the repo settings > Pages, enable GitHub Pages to serve from the `main` branch root.
-3. Visit `https://<username>.github.io/<repo>/` (may take a minute to publish).
-
--->
 
 <!doctype html>
 <html lang="en">
