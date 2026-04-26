@@ -418,8 +418,8 @@
     // tree: array of {path, type}
     const map = { '': {folders: new Set(), files: []} };
     for(const item of tree){
-      // Ignore dotfiles
-      if (item.path.includes('/.')) continue;
+      // Ignore dotfiles/dot-folders at any level (including root-level like .github)
+      if (item.path.startsWith('.') || item.path.includes('/.')) continue;
       
       const path = item.path;
       const parts = path.split('/');
