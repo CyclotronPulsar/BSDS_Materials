@@ -296,18 +296,27 @@
   <script>
   /*
     CONFIG:
+    - You can optionally set CONFIG.token to a GitHub personal access token to avoid API rate
+      limiting when testing locally.
   */
   const CONFIG = {
     owner: 'Cyclotron123',
     repo: 'BSDS_Materials',
-    branch: 'main'
+    branch: 'main',
+    token: '' // optional: 'ghp_xxx' (do NOT commit tokens publicly)
   };
   // End CONFIG
 
   // Helper: build API URLs
-  const API_TREE = `https://api.github.com/repos/${CONFIG.owner}/${CONFIG.repo}/git/trees/${CONFIG.branch}?recursive=1`;
+  function apiTreeUrl(branch){ return `https://api.github.com/repos/${CONFIG.owner}/${CONFIG.repo}/git/trees/${branch}?recursive=1`; }
   const RAW_BASE = `https://raw.githubusercontent.com/${CONFIG.owner}/${CONFIG.repo}/${CONFIG.branch}/`;
-  const VIEW_BASE = `https://raw.githack.com/${CONFIG.owner}/${CONFIG.repo}/${CONFIG.branch}/`; // NEW: For viewing files
+  const VIEW_BASE = `https://raw.githack.com/${CONFIG.owner}/${CONFIG.repo}/${CONFIG.branch}/`; // For viewing files (may be blocked on some networks)
+
+  function getHeaders(){
+    const h = {'Accept':'application/vnd.github.v3+json'};
+    if(CONFIG.token && CONFIG.token.trim()) h['Authorization'] = `token ${CONFIG.token.trim()}`;
+    return h;
+  }
 
   // State
   let rawTree = null; // array of paths/objects from API
@@ -376,9 +385,18 @@
   async function fetchTree(){
     try{
       statusEl.textContent = 'Fetching repository tree from GitHub…';
-      const res = await fetch(API_TREE, {headers:{'Accept':'application/vnd.github.v3+json'}});
+      let res = await fetch(apiTreeUrl(CONFIG.branch), {headers: getHeaders()});
+      // If branch doesn't exist or API returns 404, try to fetch repo info to get default branch
+      if(res.status === 404){
+        const repoInfo = await fetch(`https://api.github.com/repos/${CONFIG.owner}/${CONFIG.repo}`, {headers: getHeaders()});
+        if(repoInfo.ok){
+          const repoData = await repoInfo.json();
+          CONFIG.branch = repoData.default_branch || CONFIG.branch;
+          res = await fetch(apiTreeUrl(CONFIG.branch), {headers: getHeaders()});
+        }
+      }
       if(res.status === 403){
-        statusEl.innerHTML = '<strong>API rate limit reached or access forbidden.</strong> Try again later.';
+        statusEl.innerHTML = '<strong>GitHub API rate limit reached or access forbidden.</strong> Set `CONFIG.token` to a personal access token to increase limits.';
         return null;
       }
       if(!res.ok) throw new Error(`GitHub API error: ${res.status}`);
@@ -390,7 +408,7 @@
       return rawTree;
     }catch(err){
       console.error(err);
-      statusEl.innerHTML = '<strong>Could not fetch repository tree.</strong> Check owner/repo/branch config or network.';
+      statusEl.innerHTML = '<strong>Could not fetch repository tree.</strong> Check owner/repo/branch config, network, or set `CONFIG.token`.';
       return null;
     }
   }
@@ -449,29 +467,17 @@
       subjectsContainer.innerHTML = '<div class="message">No top-level folders found.</div>';
       return;
     }
-    
-    let html = '';
+    // Render using DOM APIs (safer than large innerHTML blobs)
     for(const folder of folders){
       const name = folder.replace(/\/$/,'');
-      const path = folder; // e.g., "BSDS 1/"
-      html += `
-        <div class="subject-block" role="listitem">
-          <h3>${escapeHtml(name)}</h3>
-          <a href="#" class="subject-link" data-path="${escapeHtml(path)}" role="button">
-            📄 Browse Files
-          </a>
-        </div>
-      `;
+      const path = folder;
+      const block = document.createElement('div'); block.className = 'subject-block'; block.setAttribute('role','listitem');
+      const h3 = document.createElement('h3'); h3.textContent = name; block.appendChild(h3);
+      const a = document.createElement('a'); a.href = '#'; a.className = 'subject-link'; a.dataset.path = path; a.setAttribute('role','button'); a.textContent = '📄 Browse Files';
+      a.addEventListener('click', (e)=>{ e.preventDefault(); openFolder(e.currentTarget.dataset.path); });
+      block.appendChild(a);
+      subjectsContainer.appendChild(block);
     }
-    subjectsContainer.innerHTML = html;
-    
-    // Add event listeners
-    subjectsContainer.querySelectorAll('.subject-link').forEach(link => {
-      link.addEventListener('click', (e) => {
-        e.preventDefault();
-        openFolder(e.currentTarget.dataset.path);
-      });
-    });
   }
 
   // Open folder 'path' 
@@ -529,9 +535,11 @@
         const li = document.createElement('li'); li.className = 'folder-item';
         const left = document.createElement('div'); left.style.display='flex';left.style.alignItems='center';left.style.gap='10px';
         const btn = document.createElement('button'); btn.className='back-btn'; btn.textContent='▸'; btn.setAttribute('aria-label','Expand folder '+f);
+        // Toggle only the immediate child container (avoid matching nested .child-contents)
         btn.addEventListener('click', ()=>{
-          if(li.querySelector('.child-contents')){
-            li.removeChild(li.querySelector('.child-contents'));
+          const existing = Array.from(li.children).find(c => c && c.classList && c.classList.contains('child-contents'));
+          if(existing){
+            li.removeChild(existing);
             btn.textContent='▸';
           } else {
             btn.textContent='▾';
@@ -569,7 +577,7 @@
         
         // 1. "Open in Tab" button (was "Open raw")
         const openInTab = document.createElement('a'); 
-        openInTab.href = VIEW_BASE + file.path; //  Use VIEW_BASE
+        openInTab.href = encodeURI(VIEW_BASE + file.path); // Use VIEW_BASE; encode URI to handle spaces/special chars
         openInTab.target='_blank'; 
         openInTab.rel='noopener noreferrer'; 
         openInTab.className='back-btn'; 
@@ -578,7 +586,7 @@
         
         // 2. "Download" button
         const downloadBtn = document.createElement('a');
-        downloadBtn.href = RAW_BASE + file.path;
+        downloadBtn.href = encodeURI(RAW_BASE + file.path);
         downloadBtn.className = 'back-btn';
         downloadBtn.textContent = 'Download';
         downloadBtn.setAttribute('aria-label', 'Download file ' + file.name);
@@ -604,8 +612,10 @@
       const ul = document.createElement('ul'); ul.style.listStyle='none'; ul.style.padding='0';
       for(const f of node.folders){
         const li = document.createElement('li'); li.style.padding='8px 0';
-        const btn = document.createElement('button'); btn.className='back-btn'; btn.textContent='▸'; btn.addEventListener('click', ()=>{
-          if(li.querySelector('.child-contents')){ li.removeChild(li.querySelector('.child-contents')); btn.textContent='▸'; } else { btn.textContent='▾'; const c=document.createElement('div'); c.style.marginLeft='20px'; renderMini(nodePath(path,f), c); li.appendChild(c); }
+        const btn = document.createElement('button'); btn.className='back-btn'; btn.textContent='▸';
+        btn.addEventListener('click', ()=>{
+          const existing = Array.from(li.children).find(c => c && c.classList && c.classList.contains('child-contents'));
+          if(existing){ li.removeChild(existing); btn.textContent='▸'; } else { btn.textContent='▾'; const c=document.createElement('div'); c.className='child-contents'; c.style.marginLeft='20px'; renderMini(nodePath(path,f), c); li.appendChild(c); }
         });
         const span = document.createElement('span'); span.textContent='📁 '+f.replace(/\/$/,''); span.style.marginLeft='8px'; span.tabIndex=0; span.style.cursor='pointer'; span.addEventListener('click', ()=> openFolder(nodePath(path,f)));
         span.addEventListener('keydown',(e)=>{ if(e.key==='Enter' || e.key===' ') { e.preventDefault(); openFolder(nodePath(path,f)); } });
@@ -652,19 +662,23 @@
     }
     
     // All other files (text, code, etc.)
-    const url = RAW_BASE + path; // Use RAW_BASE to fetch text
+    const url = encodeURI(RAW_BASE + path); // Use RAW_BASE to fetch text
     try{
-      modalTitle.textContent = name;
-      modalBody.innerHTML = '<div class="message">Loading file preview…</div>';
-      openModal(name, document.createElement('div'), false); // Make sure openModal is called
+      const previewContainer = document.createElement('div');
+      openModal(name, previewContainer, false);
+      previewContainer.innerHTML = '<div class="message">Loading file preview…</div>';
       const res = await fetch(url);
       if(!res.ok) throw new Error('Failed to fetch file');
       const text = await res.text();
       const pre = document.createElement('pre'); pre.style.whiteSpace='pre-wrap'; pre.style.fontSize='13px'; pre.textContent = text;
-      modalBody.innerHTML = '';
-      modalBody.appendChild(pre);
+      previewContainer.innerHTML = '';
+      previewContainer.appendChild(pre);
     }catch(err){
-      modalBody.innerHTML = '<div class="message">Unable to load preview. Open raw to download.</div>';
+      const fallback = document.createElement('div');
+      fallback.className = 'message';
+      fallback.innerHTML = 'Unable to load preview. <a href="' + encodeURI(VIEW_BASE + path) + '" target="_blank" rel="noopener noreferrer">Open in new tab</a>.';
+      modalBody.innerHTML = '';
+      modalBody.appendChild(fallback);
     }
   }
 
