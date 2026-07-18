@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>BSDS Materials</title>
+  <link rel="stylesheet" href="assets/css/styles.css">
+</head>
+<body>
+  <div class="app">
+    <header class="hero">
+      <h1>BSDS Materials</h1>
+      <p class="hero-sub">All notes and documents in one place.</p>
+    </header>
+
+    <div id="status" class="status-message">Loading repository data...</div>
+
+    <main id="mainContent">
+      <h2 class="section-title">Subjects</h2>
+      <section id="subjects-container" aria-live="polite"></section>
+    </main>
+
+    <section id="folderView" style="display:none;">
+      <div class="folder-nav">
+        <button id="backToMain" class="back-btn" type="button">Back</button>
+        <nav id="breadcrumbs" class="breadcrumbs" aria-label="Breadcrumb"></nav>
+      </div>
+      <div class="controls">
+        <div class="search-wrapper">
+          <input id="search" class="search" type="search" placeholder="Search this folder...">
+        </div>
+      </div>
+      <div id="folderContents"></div>
+    </section>
+
+    <div id="modalBackdrop" class="modal-backdrop" aria-hidden="true">
+      <div class="modal" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
+        <div class="modal-header">
+          <div id="modalTitle" class="modal-title"></div>
+          <button id="modalClose" class="action-icon-btn" type="button" aria-label="Close preview">✕</button>
+        </div>
+        <div id="modalBody" class="modal-body"></div>
+      </div>
+    </div>
+  </div>
+
+  <script src="assets/js/app.js" defer></script>
+</body>
+</html>

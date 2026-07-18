@@ -3,7 +3,7 @@
 */
 
 const CONFIG = {
-  owner: 'Cyclotron123',
+  owner: 'CyclotronPulsar',
   repo: 'BSDS_Materials',
   branch: 'main',
   token: '' // Optional: Add a GitHub PAT to increase rate limits
