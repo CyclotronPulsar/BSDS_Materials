@@ -71,6 +71,7 @@ function formatName(raw) {
 function detectFileType(name) {
   const low = name.toLowerCase();
   if (low.endsWith('.pdf')) return { type: 'PDF', icon: ICONS.filePdf, class: 'pdf' };
+  if (low.match(/\.(zip|rar|7z|tar|gz|bz2|xz)$/)) return { type: 'archive', label: 'Archive', icon: ICONS.download, class: 'text' };
   if (low.match(/\.(js|py|r|java|c|cpp|json|xml|html|css)$/)) return { type: 'Code', icon: ICONS.fileCode, class: 'code' };
   return { type: 'Text', icon: ICONS.fileText, class: 'text' };
 }
@@ -512,6 +513,19 @@ function escapeHtml(s) {
 
 async function openFile(path) {
   const name = path.split('/').pop();
+
+  // Archive files cannot be previewed — trigger a direct browser download instead
+  if (detectFileType(name).type === 'archive') {
+    const a = document.createElement('a');
+    a.href = encodeURI(RAW_BASE + path);
+    a.download = name;
+    a.style.display = 'none';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    return;
+  }
+
   if (name.toLowerCase().endsWith('.pdf')) {
     openModal(name, VIEW_BASE + path, true);
     return;
