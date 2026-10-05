@@ -1,19 +1,20 @@
 /* 
-  BSDS Materials - Application Logic
+  BSDS Materials - Application Logic (Upgraded with multi-owner & fallback tree support)
 */
 
 const CONFIG = {
-  owner: 'Cyclotron123',
+  owner: 'CyclotronPulsar',
+  fallbackOwner: 'Cyclotron123',
   repo: 'BSDS_Materials',
   branch: 'main',
   token: '' // Optional: Add a GitHub PAT to increase rate limits
 };
 
 const RAW_BASE = `https://raw.githubusercontent.com/${CONFIG.owner}/${CONFIG.repo}/${CONFIG.branch}/`;
-const VIEW_BASE = `https://raw.githack.com/${CONFIG.owner}/${CONFIG.repo}/${CONFIG.branch}/`;
+const VIEW_BASE = `viewer.html?file=`;
 
-function apiTreeUrl(branch) {
-  return `https://api.github.com/repos/${CONFIG.owner}/${CONFIG.repo}/git/trees/${branch}?recursive=1`;
+function apiTreeUrl(owner, branch) {
+  return `https://api.github.com/repos/${owner}/${CONFIG.repo}/git/trees/${branch}?recursive=1`;
 }
 
 function getHeaders() {
@@ -21,6 +22,43 @@ function getHeaders() {
   if (CONFIG.token && CONFIG.token.trim()) h['Authorization'] = `token ${CONFIG.token.trim()}`;
   return h;
 }
+
+// Built-in offline / rate-limit fallback tree so BSDS Materials always works even when GitHub API returns 403
+const FALLBACK_TREE = [
+  { path: 'BSDS_1/SEM_1/ECO/NOTES/Eco1_Midsem.pdf', type: 'blob' },
+  { path: 'BSDS_1/SEM_1/ECO/NOTES/Eco1_Endsem.pdf', type: 'blob' },
+  { path: 'BSDS_1/SEM_1/ECO/NOTES/Economics_1st_sem_Notes.pdf', type: 'blob' },
+  { path: 'BSDS_1/SEM_1/ECO/NOTES/Microeconomics_Problem Set_1.pdf', type: 'blob' },
+  { path: 'BSDS_1/SEM_1/ECO/NOTES/Microeconomics_Problem Set_4.pdf', type: 'blob' },
+  { path: 'BSDS_1/SEM_1/ITC/NOTES/Final Semester.pdf', type: 'blob' },
+  { path: 'BSDS_1/SEM_1/ITC/NOTES/Final Semester - Solution.pdf', type: 'blob' },
+  { path: 'BSDS_1/SEM_1/ITC/NOTES/ITC 25.pdf', type: 'blob' },
+  { path: 'BSDS_1/SEM_1/MATH-I', type: 'tree' },
+  { path: 'BSDS_1/SEM_1/PROBABILITY_1', type: 'tree' },
+  { path: 'BSDS_1/SEM_1/STAT-I', type: 'tree' },
+  { path: 'BSDS_1/SEM_2/DARP', type: 'tree' },
+  { path: 'BSDS_1/SEM_2/ECO2', type: 'tree' },
+  { path: 'BSDS_1/SEM_2/MATH-II', type: 'tree' },
+  { path: 'BSDS_1/SEM_2/OPT', type: 'tree' },
+  { path: 'BSDS_1/SEM_2/PHYSICS', type: 'tree' },
+  { path: 'BSDS_1/SEM_2/STATISTICAL INFERENCE', type: 'tree' },
+  { path: 'BSDS_2/SEM_1/DSA', type: 'tree' },
+  { path: 'BSDS_2/SEM_1/MDR', type: 'tree' },
+  { path: 'BSDS_2/SEM_1/Maths-III', type: 'tree' },
+  { path: 'BSDS_2/SEM_1/PROBABILITY_2', type: 'tree' },
+  { path: 'BSDS_2/SEM_1/Statistical Inference', type: 'tree' },
+  { path: 'BSDS_2/SEM_2/ASM-I', type: 'tree' },
+  { path: 'BSDS_2/SEM_2/DBMS', type: 'tree' },
+  { path: 'BSDS_2/SEM_2/LSM', type: 'tree' },
+  { path: 'BSDS_2/SEM_2/Math-IV', type: 'tree' },
+  { path: 'BSDS_2/SEM_2/SP', type: 'tree' },
+  { path: 'BSDS_3/SEM_1/ASM_2', type: 'tree' },
+  { path: 'BSDS_3/SEM_1/Bayesian', type: 'tree' },
+  { path: 'BSDS_3/SEM_1/RT', type: 'tree' },
+  { path: 'BSDS_3/SEM_1/SITP', type: 'tree' },
+  { path: 'BSDS_3/SEM_1/SL-I', type: 'tree' },
+  { path: 'BSDS_3/SEM_2/HI', type: 'tree' }
+];
 
 // --- ICONS (Lucide SVGs) ---
 const ICONS = {
@@ -122,8 +160,7 @@ window.addEventListener('keydown', (e) => {
 
 // --- GITHUB API ---
 async function fetchTree() {
-  // Check sessionStorage cache first to avoid hitting GitHub rate limits
-  const CACHE_KEY = 'bsds_tree';
+  const CACHE_KEY = 'bsds_tree_v2';
   const cached = sessionStorage.getItem(CACHE_KEY);
   if (cached) {
     try {
@@ -136,48 +173,38 @@ async function fetchTree() {
 
   try {
     elements.status.innerHTML = `${ICONS.arrowRight} Fetching repository...`;
-    let res = await fetch(apiTreeUrl(CONFIG.branch), { headers: getHeaders() });
+    let res = await fetch(apiTreeUrl(CONFIG.owner, CONFIG.branch), { headers: getHeaders() });
     
-    if (res.status === 404) {
-      const repoInfo = await fetch(`https://api.github.com/repos/${CONFIG.owner}/${CONFIG.repo}`, { headers: getHeaders() });
-      if (repoInfo.ok) {
-        const repoData = await repoInfo.json();
-        CONFIG.branch = repoData.default_branch || CONFIG.branch;
-        res = await fetch(apiTreeUrl(CONFIG.branch), { headers: getHeaders() });
-      }
+    if (!res.ok && CONFIG.fallbackOwner) {
+      res = await fetch(apiTreeUrl(CONFIG.fallbackOwner, CONFIG.branch), { headers: getHeaders() });
     }
     
-    if (res.status === 403) {
-      elements.status.className = 'status-message error';
-      elements.status.innerHTML = '<strong>Rate limit reached.</strong> Please try again later.';
-      return null;
+    if (res.status === 403 || !res.ok) {
+      elements.status.style.display = 'none';
+      return FALLBACK_TREE;
     }
     
-    if (!res.ok) throw new Error(`API error: ${res.status}`);
     const data = await res.json();
-    if (!data.tree) throw new Error('Unexpected response');
+    if (!data.tree) return FALLBACK_TREE;
     
-    // Cache the result for the duration of this browser session
-    try { sessionStorage.setItem(CACHE_KEY, JSON.stringify(data.tree)); } catch (_) { /* storage full, skip */ }
+    try { sessionStorage.setItem(CACHE_KEY, JSON.stringify(data.tree)); } catch (_) {}
     
     elements.status.style.display = 'none';
     return data.tree;
   } catch (err) {
-    console.error(err);
-    elements.status.className = 'status-message error';
-    elements.status.innerHTML = '<strong>Error fetching data.</strong> Check network connection.';
-    return null;
+    console.warn('Using fallback repository tree:', err);
+    elements.status.style.display = 'none';
+    return FALLBACK_TREE;
   }
 }
 
 function buildTreeMap(tree) {
   const map = { '': { folders: new Set(), files: [] } };
   
-  // Define files/folders to hide from the UI also the hidden folders
-  const hiddenPaths = ['index.html', 'assets', 'css', 'js', 'README.md', '.git'];
+  // Define files/folders to hide from the UI
+  const hiddenPaths = ['index.html', 'bsds-index.html', 'viewer.html', 'assets', 'css', 'js', 'README.md', '.git'];
 
   for (const item of tree) {
-    // Check if the item path starts with any of our hidden paths
     const shouldHide = hiddenPaths.some(hp => item.path === hp || item.path.startsWith(hp + '/'));
     if (shouldHide || item.path.includes('/.')) continue;
 
@@ -374,10 +401,12 @@ function renderFolderContents(path) {
       right.className = 'right';
       
       const btnOpen = document.createElement('a');
-      btnOpen.href = encodeURI(VIEW_BASE + file.path);
+      btnOpen.href = file.name.toLowerCase().endsWith('.pdf')
+        ? `viewer.html?file=${encodeURIComponent(file.path)}`
+        : encodeURI(RAW_BASE + file.path);
       btnOpen.target = '_blank';
       btnOpen.className = 'action-icon-btn';
-      btnOpen.title = 'Open in new tab';
+      btnOpen.title = 'Open in Lumina PDF';
       btnOpen.innerHTML = ICONS.external;
       
       const btnDownload = document.createElement('a');
@@ -387,7 +416,6 @@ function renderFolderContents(path) {
       btnDownload.setAttribute('download', file.name);
       btnDownload.dataset.action = 'download';
       btnDownload.innerHTML = ICONS.download;
-      // Force real download (GitHub raw often opens PDFs instead of saving)
       btnDownload.addEventListener('click', async (e) => {
         e.preventDefault();
         e.stopPropagation();
@@ -406,7 +434,6 @@ function renderFolderContents(path) {
           a.remove();
           URL.revokeObjectURL(objectUrl);
         } catch (err) {
-          // Fallback: open raw URL (user can Save As)
           window.open(url, '_blank', 'noopener,noreferrer');
         } finally {
           btnDownload.style.opacity = '';
@@ -540,7 +567,6 @@ function escapeHtml(s) {
 async function openFile(path) {
   const name = path.split('/').pop();
 
-  // Archive files cannot be previewed — trigger a direct browser download instead
   if (detectFileType(name).type === 'archive') {
     const a = document.createElement('a');
     a.href = encodeURI(RAW_BASE + path);
@@ -553,7 +579,7 @@ async function openFile(path) {
   }
 
   if (name.toLowerCase().endsWith('.pdf')) {
-    openModal(name, VIEW_BASE + path, true);
+    window.location.href = `viewer.html?file=${encodeURIComponent(path)}`;
     return;
   }
   
@@ -575,11 +601,13 @@ async function openFile(path) {
     const fallback = document.createElement('div');
     fallback.className = 'message';
     fallback.style.margin = '20px';
-    fallback.innerHTML = `Unable to load preview. <a href="${encodeURI(VIEW_BASE + path)}" target="_blank" style="text-decoration:underline;margin-left:8px">Open in new tab</a>`;
+    fallback.innerHTML = `Unable to load preview. <a href="${encodeURI(RAW_BASE + path)}" target="_blank" style="text-decoration:underline;margin-left:8px">Open in new tab</a>`;
     elements.modalBody.innerHTML = '';
     elements.modalBody.appendChild(fallback);
   }
 }
+
+window.openFile = openFile;
 
 elements.searchInput.addEventListener('input', (e) => {
   const term = e.target.value.trim().toLowerCase();

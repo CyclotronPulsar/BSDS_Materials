@@ -566,7 +566,7 @@ footer {
   padding: 0;
   flex: 1;
   overflow: auto;
-  background: #0f172a; /* Slightly lighter dark for contrast with code */
+  background: #0f172a;
   border-bottom-left-radius: var(--radius-lg);
   border-bottom-right-radius: var(--radius-lg);
 }

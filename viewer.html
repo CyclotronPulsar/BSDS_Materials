@@ -4,83 +4,383 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
   <title>Lumina PDF</title>
-  <meta name="description" content="Lumina PDF – Modern academic PDF reader for BSDS Materials" />
+  <meta name="description" content="Lumina PDF – Chrome-grade academic PDF reader for BSDS Materials" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="css/viewer.css" />
   <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js" defer></script>
   <script src="js/viewer.js" type="module" defer></script>
 </head>
 <body>
   <div id="app" class="app">
-    <!-- Toolbar -->
+    <!-- Top Reading Progress Line -->
+    <div id="reading-progress-wrap" class="reading-progress-wrap" aria-hidden="true">
+      <div id="reading-progress" class="reading-progress"></div>
+    </div>
+
+    <!-- Chrome + Lumina Unified Toolbar -->
     <header class="toolbar" role="toolbar" aria-label="PDF controls">
+      <!-- Left: Sidebar toggle, Back to library, Title, Bookmark star, Local file open -->
       <div class="toolbar-left">
-        <button id="btn-back" class="btn" title="Back to library" aria-label="Back">←</button>
-        <span id="doc-title" class="doc-title">Loading…</span>
+        <button id="btn-sidebar" class="btn icon-btn" title="Toggle sidebar (F4 / Ctrl+B)" aria-label="Toggle sidebar">
+          <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="3" y="3" width="18" height="18" rx="2" />
+            <line x1="9" y1="3" x2="9" y2="21" />
+          </svg>
+        </button>
+        <button id="btn-back" class="btn icon-btn" title="Back to BSDS library" aria-label="Back">
+          <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <line x1="19" y1="12" x2="5" y2="12" />
+            <polyline points="12 19 5 12 12 5" />
+          </svg>
+        </button>
+        <span id="doc-title" class="doc-title" title="Document title">Loading…</span>
+        <button id="btn-bookmark-page" class="btn icon-btn" title="Bookmark current page (Ctrl+M)" aria-label="Bookmark page">☆</button>
+        <button id="btn-open-local" class="btn wide subtle-btn" title="Open a local PDF file from your computer" aria-label="Open local PDF">
+          <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+            <polyline points="14 2 14 8 20 8" />
+            <line x1="12" y1="18" x2="12" y2="12" />
+            <line x1="9" y1="15" x2="15" y2="15" />
+          </svg>
+          <span>Open File</span>
+        </button>
+        <input id="file-input" type="file" accept="application/pdf,.pdf" class="sr-only" />
       </div>
 
+      <!-- Center: Chrome Page Counter, Zoom Controls, Fit Modes, Rotation, Spread & Hand Tool -->
       <div class="toolbar-center">
-        <button id="btn-prev" class="btn" title="Previous page (↑)" aria-label="Previous page">▲</button>
+        <button id="btn-prev" class="btn icon-btn" title="Previous page (↑ / PageUp)" aria-label="Previous page">
+          <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="18 15 12 9 6 15" />
+          </svg>
+        </button>
         <div class="page-control">
           <input id="page-input" type="number" min="1" value="1" aria-label="Page number" />
           <span id="page-total" class="muted">/ 0</span>
         </div>
-        <button id="btn-next" class="btn" title="Next page (↓)" aria-label="Next page">▼</button>
+        <button id="btn-next" class="btn icon-btn" title="Next page (↓ / PageDown)" aria-label="Next page">
+          <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="6 9 12 15 18 9" />
+          </svg>
+        </button>
 
         <span class="divider"></span>
 
-        <button id="btn-zoom-out" class="btn" title="Zoom out (−)" aria-label="Zoom out">−</button>
-        <span id="zoom-label" class="zoom-label">100%</span>
-        <button id="btn-zoom-in" class="btn" title="Zoom in (+)" aria-label="Zoom in">+</button>
+        <button id="btn-zoom-out" class="btn icon-btn" title="Zoom out (Ctrl+−)" aria-label="Zoom out">
+          <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <line x1="5" y1="12" x2="19" y2="12" />
+          </svg>
+        </button>
+        <div class="zoom-dropdown-wrap">
+          <button id="zoom-label" class="zoom-label" title="Click to choose zoom preset" aria-label="Zoom level">125%</button>
+          <div id="zoom-menu" class="dropdown-menu zoom-menu hidden" role="menu">
+            <button type="button" data-zoom="fit-width" class="dropdown-item">Fit to width</button>
+            <button type="button" data-zoom="fit-page" class="dropdown-item">Fit to page</button>
+            <div class="dropdown-sep"></div>
+            <button type="button" data-scale="0.5" class="dropdown-item">50%</button>
+            <button type="button" data-scale="0.75" class="dropdown-item">75%</button>
+            <button type="button" data-scale="1" class="dropdown-item">100%</button>
+            <button type="button" data-scale="1.25" class="dropdown-item">125% (Default)</button>
+            <button type="button" data-scale="1.5" class="dropdown-item">150%</button>
+            <button type="button" data-scale="2" class="dropdown-item">200%</button>
+            <button type="button" data-scale="3" class="dropdown-item">300%</button>
+            <button type="button" data-scale="4" class="dropdown-item">400%</button>
+          </div>
+        </div>
+        <button id="btn-zoom-in" class="btn icon-btn" title="Zoom in (Ctrl++)" aria-label="Zoom in">
+          <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <line x1="12" y1="5" x2="12" y2="19" />
+            <line x1="5" y1="12" x2="19" y2="12" />
+          </svg>
+        </button>
+
         <button id="btn-fit-width" class="btn wide" title="Fit width (Ctrl+0)">Fit W</button>
-        <button id="btn-fit-page" class="btn wide" title="Fit page">Fit P</button>
+        <button id="btn-fit-page" class="btn wide" title="Fit page (Ctrl+9)">Fit P</button>
+
+        <span class="divider"></span>
+
+        <button id="btn-rotate-ccw" class="btn icon-btn" title="Rotate counter-clockwise (Shift+R)" aria-label="Rotate counter-clockwise">
+          <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" />
+            <path d="M3 3v5h5" />
+          </svg>
+        </button>
+        <button id="btn-rotate-cw" class="btn icon-btn" title="Rotate clockwise (R)" aria-label="Rotate clockwise">
+          <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M21 12a9 9 0 1 1-9-9c2.52 0 4.93 1 6.74 2.74L21 8" />
+            <path d="M21 3v5h-5" />
+          </svg>
+        </button>
+        <button id="btn-spread" class="btn icon-btn" title="Toggle two-page view (S)" aria-label="Two-page view">
+          <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z" />
+            <path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z" />
+          </svg>
+        </button>
+        <button id="btn-hand" class="btn icon-btn" title="Hand pan tool (H or hold Space)" aria-label="Hand tool">
+          <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M18 11V6a2 2 0 0 0-2-2v0a2 2 0 0 0-2 2v0" />
+            <path d="M14 10V4a2 2 0 0 0-2-2v0a2 2 0 0 0-2 2v2" />
+            <path d="M10 10.5V6a2 2 0 0 0-2-2v0a2 2 0 0 0-2 2v8" />
+            <path d="M18 8a2 2 0 1 1 4 0v6a8 8 0 0 1-8 8h-2c-2.8 0-4.5-.86-5.99-2.34l-3.6-3.6a2 2 0 0 1 2.83-2.82L7 15" />
+          </svg>
+        </button>
       </div>
 
+      <!-- Right: Search, Chrome Annotations, Theme Switcher, Fullscreen, Download, Print, More Menu -->
       <div class="toolbar-right">
-        <div class="search-box">
-          <input id="search-input" type="search" placeholder="Search…" aria-label="Search in PDF" autocomplete="off" />
+        <div class="search-box" id="search-box">
+          <svg class="search-icon" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="11" cy="11" r="8" />
+            <line x1="21" y1="21" x2="16.65" y2="16.65" />
+          </svg>
+          <input id="search-input" type="search" placeholder="Find in document…" aria-label="Search in PDF" autocomplete="off" />
+          <button id="btn-match-case" class="btn icon small-toggle" title="Match case" aria-label="Match case">Aa</button>
           <span id="search-count" class="search-count" aria-live="polite"></span>
-          <button id="btn-search-prev" class="btn icon" title="Previous match">‹</button>
-          <button id="btn-search-next" class="btn icon" title="Next match">›</button>
+          <button id="btn-search-prev" class="btn icon" title="Previous match (Shift+Enter)" aria-label="Previous match">‹</button>
+          <button id="btn-search-next" class="btn icon" title="Next match (Enter)" aria-label="Next match">›</button>
         </div>
-        <button id="btn-theme" class="btn" title="Cycle theme (Ctrl+D)" aria-label="Theme">☾</button>
-        <button id="btn-sidebar" class="btn" title="Toggle sidebar" aria-label="Sidebar">☰</button>
-        <button id="btn-fullscreen" class="btn" title="Fullscreen (F11)" aria-label="Fullscreen">⛶</button>
-        <button id="btn-download" class="btn" title="Download" aria-label="Download">↓</button>
-        <button id="btn-print" class="btn" title="Print (Ctrl+P)" aria-label="Print">⎙</button>
+
+        <!-- Chrome PDF Viewer Annotation Tools -->
+        <div class="annot-group" role="group" aria-label="Annotation tools">
+          <button id="btn-draw-highlight" class="btn icon-btn" title="Highlighter tool" aria-label="Highlighter">
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="m9 11-6 6v3h9l3-3" />
+              <path d="m22 12-4.6 4.6a2 2 0 0 1-2.8 0l-5.2-5.2a2 2 0 0 1 0-2.8L14 4" />
+            </svg>
+          </button>
+          <button id="btn-draw-pen" class="btn icon-btn" title="Draw / Pen tool" aria-label="Draw">
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M12 19l7-7 3 3-7 7-3-3z" />
+              <path d="M18 13l-1.5-7.5L2 2l3.5 14.5L13 18l5-5z" />
+              <path d="M2 2l7.586 7.586" />
+              <circle cx="11" cy="11" r="2" />
+            </svg>
+          </button>
+          <button id="btn-draw-eraser" class="btn icon-btn" title="Clear annotations on current page" aria-label="Erase page annotations">
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="m7 21-4.3-4.3c-1-1-1-2.5 0-3.4l9.6-9.6c1-1 2.5-1 3.4 0l5.6 5.6c1 1 1 2.5 0 3.4L13 21" />
+              <path d="M22 21H7" />
+              <path d="m5 11 9 9" />
+            </svg>
+          </button>
+        </div>
+
+        <!-- Theme Cycler & Picker -->
+        <div class="theme-dropdown-wrap">
+          <button id="btn-theme" class="btn icon-btn" title="Cycle theme (Ctrl+D) · Right-click for list" aria-label="Theme">☾</button>
+          <div id="theme-menu" class="dropdown-menu theme-menu hidden" role="menu">
+            <div class="dropdown-header">Reading Theme</div>
+            <button type="button" data-theme="dark" class="dropdown-item">☾ Dark (Chrome Default)</button>
+            <button type="button" data-theme="light" class="dropdown-item">☀ Light Paper</button>
+            <button type="button" data-theme="invert" class="dropdown-item">◐ Inverted High-Contrast</button>
+            <button type="button" data-theme="sepia" class="dropdown-item">棕 Warm Sepia</button>
+            <button type="button" data-theme="amoled" class="dropdown-item">⬤ True AMOLED Pitch</button>
+            <button type="button" data-theme="eye-comfort" class="dropdown-item">👁 Eye Comfort Shield</button>
+            <button type="button" data-theme="smart-dark" class="dropdown-item">◑ Smart Dark Academic</button>
+          </div>
+        </div>
+
+        <button id="btn-fullscreen" class="btn icon-btn" title="Fullscreen / Presentation (F11)" aria-label="Fullscreen">
+          <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3" />
+          </svg>
+        </button>
+        <button id="btn-download" class="btn icon-btn" title="Download PDF (Ctrl+S)" aria-label="Download">
+          <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+            <polyline points="7 10 12 15 17 10" />
+            <line x1="12" y1="15" x2="12" y2="3" />
+          </svg>
+        </button>
+        <button id="btn-print" class="btn icon-btn" title="Print PDF (Ctrl+P)" aria-label="Print">
+          <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="6 9 6 2 18 2 18 9" />
+            <path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2" />
+            <rect x="6" y="14" width="12" height="8" />
+          </svg>
+        </button>
+
+        <!-- Chrome 3-Dot More Actions Menu -->
+        <div class="more-dropdown-wrap">
+          <button id="btn-more" class="btn icon-btn" title="More actions" aria-label="More actions">
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="12" cy="12" r="1" />
+              <circle cx="12" cy="5" r="1" />
+              <circle cx="12" cy="19" r="1" />
+            </svg>
+          </button>
+          <div id="more-menu" class="dropdown-menu more-menu hidden" role="menu">
+            <button type="button" id="menu-two-page" class="dropdown-item">
+              <span>Two-page view</span>
+              <span id="check-two-page" class="menu-check"></span>
+            </button>
+            <button type="button" id="menu-annotations" class="dropdown-item">
+              <span>Show annotations</span>
+              <span id="check-annotations" class="menu-check">✓</span>
+            </button>
+            <button type="button" id="menu-present" class="dropdown-item">
+              <span>Presentation mode</span>
+              <span class="menu-shortcut">F11</span>
+            </button>
+            <div class="dropdown-sep"></div>
+            <button type="button" id="menu-first-page" class="dropdown-item">
+              <span>Go to first page</span>
+              <span class="menu-shortcut">Home</span>
+            </button>
+            <button type="button" id="menu-last-page" class="dropdown-item">
+              <span>Go to last page</span>
+              <span class="menu-shortcut">End</span>
+            </button>
+            <div class="dropdown-sep"></div>
+            <button type="button" id="menu-shortcuts" class="dropdown-item">
+              <span>Keyboard shortcuts</span>
+              <span class="menu-shortcut">?</span>
+            </button>
+            <button type="button" id="menu-doc-props" class="dropdown-item">
+              <span>Document properties…</span>
+              <span class="menu-shortcut">Ctrl+I</span>
+            </button>
+          </div>
+        </div>
       </div>
     </header>
 
+    <!-- Secondary Annotation Color/Size Bar (shown when Pen or Highlighter is active) -->
+    <div id="annot-bar" class="annot-bar hidden" role=" region" aria-label="Annotation settings">
+      <span id="annot-mode-label" class="annot-mode-label">Highlighter Active</span>
+      <div class="annot-colors">
+        <button type="button" class="color-swatch active" data-color="#facc15" style="background:#facc15" title="Yellow"></button>
+        <button type="button" class="color-swatch" data-color="#4ade80" style="background:#4ade80" title="Green"></button>
+        <button type="button" class="color-swatch" data-color="#38bdf8" style="background:#38bdf8" title="Cyan"></button>
+        <button type="button" class="color-swatch" data-color="#f472b6" style="background:#f472b6" title="Pink"></button>
+        <button type="button" class="color-swatch" data-color="#ef4444" style="background:#ef4444" title="Red"></button>
+      </div>
+      <label class="annot-size-label">
+        Size
+        <input id="annot-size" type="range" min="2" max="28" value="14" />
+      </label>
+      <button type="button" id="btn-annot-undo" class="btn wide subtle-btn">Undo Stroke</button>
+      <button type="button" id="btn-annot-done" class="btn wide primary-mini-btn">Done</button>
+    </div>
+
     <!-- Main area -->
     <div class="main">
-      <!-- Sidebar -->
+      <!-- Chrome Left Sidebar -->
       <aside id="sidebar" class="sidebar hidden" aria-label="Sidebar">
         <div class="sidebar-tabs">
-          <button data-tab="thumbs" class="tab active" title="Thumbnails">Pages</button>
-          <button data-tab="outline" class="tab" title="Outline">Outline</button>
-          <button data-tab="bookmarks" class="tab" title="Bookmarks">★</button>
+          <button data-tab="thumbs" class="tab active" title="Page Thumbnails">Pages</button>
+          <button data-tab="outline" class="tab" title="Document Outline / Table of Contents">Outline</button>
+          <button data-tab="bookmarks" class="tab" title="Saved Bookmarks">★ Bookmarks</button>
         </div>
         <div id="sidebar-content" class="sidebar-content">
-          <div id="panel-thumbs" class="panel"></div>
+          <div id="panel-thumbs" class="panel thumbs-grid"></div>
           <div id="panel-outline" class="panel hidden">
             <p class="empty">No outline available</p>
           </div>
           <div id="panel-bookmarks" class="panel hidden">
-            <p class="empty">Bookmarks coming soon</p>
+            <div class="bookmarks-header">
+              <button id="btn-add-bookmark" class="btn wide primary-mini-btn" style="width:100%">+ Bookmark Page <span id="bm-cur-page">1</span></button>
+            </div>
+            <div id="bookmarks-list" class="bookmarks-list">
+              <p class="empty">No bookmarks saved for this PDF yet.</p>
+            </div>
           </div>
         </div>
       </aside>
 
-      <!-- Viewer -->
+      <!-- Viewer Viewport -->
       <main id="viewer-wrap" class="viewer-wrap">
         <div id="viewer" class="viewer" aria-label="PDF pages"></div>
+        <!-- Scrollbar Search Match Tick Marks -->
+        <div id="search-markers" class="search-markers" aria-hidden="true"></div>
+
+        <!-- Floating Chrome Zoom & Fit Pill (bottom-right convenience overlay) -->
+        <div class="floating-controls" aria-label="Quick zoom controls">
+          <button id="fab-fit" class="fab-btn" title="Toggle Fit Width / Fit Page">
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7" />
+            </svg>
+          </button>
+          <button id="fab-zoom-in" class="fab-btn" title="Zoom in (+)">+</button>
+          <button id="fab-zoom-out" class="fab-btn" title="Zoom out (−)">−</button>
+        </div>
       </main>
     </div>
 
     <!-- Status bar -->
-    <footer id="status" class="status">Ready</footer>
+    <footer class="status-bar">
+      <div id="status" class="status">Ready</div>
+      <div id="status-meta" class="status-meta"></div>
+    </footer>
+
+    <!-- Chrome Document Properties Dialog -->
+    <div id="props-backdrop" class="dialog-backdrop hidden" role="dialog" aria-modal="true" aria-labelledby="props-title">
+      <div class="dialog-box">
+        <div class="dialog-header">
+          <h3 id="props-title">Document properties</h3>
+          <button id="props-close" class="btn icon-btn" aria-label="Close">✕</button>
+        </div>
+        <div class="dialog-body">
+          <dl class="props-list">
+            <div><dt>File name:</dt><dd id="prop-filename">—</dd></div>
+            <div><dt>File size:</dt><dd id="prop-filesize">—</dd></div>
+            <div class="props-sep"></div>
+            <div><dt>Title:</dt><dd id="prop-title">—</dd></div>
+            <div><dt>Author:</dt><dd id="prop-author">—</dd></div>
+            <div><dt>Subject:</dt><dd id="prop-subject">—</dd></div>
+            <div><dt>Keywords:</dt><dd id="prop-keywords">—</dd></div>
+            <div><dt>Created:</dt><dd id="prop-created">—</dd></div>
+            <div><dt>Modified:</dt><dd id="prop-modified">—</dd></div>
+            <div><dt>Application:</dt><dd id="prop-creator">—</dd></div>
+            <div class="props-sep"></div>
+            <div><dt>PDF producer:</dt><dd id="prop-producer">—</dd></div>
+            <div><dt>PDF version:</dt><dd id="prop-version">—</dd></div>
+            <div><dt>Page count:</dt><dd id="prop-pages">—</dd></div>
+            <div><dt>Page size:</dt><dd id="prop-pagesize">—</dd></div>
+            <div><dt>Fast Web View:</dt><dd id="prop-linearized">—</dd></div>
+          </dl>
+        </div>
+        <div class="dialog-footer">
+          <button id="props-ok" class="btn wide primary-mini-btn">Close</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Keyboard Shortcuts Modal -->
+    <div id="shortcuts-backdrop" class="dialog-backdrop hidden" role="dialog" aria-modal="true" aria-labelledby="shortcuts-title">
+      <div class="dialog-box">
+        <div class="dialog-header">
+          <h3 id="shortcuts-title">Keyboard shortcuts</h3>
+          <button id="shortcuts-close" class="btn icon-btn" aria-label="Close">✕</button>
+        </div>
+        <div class="dialog-body">
+          <div class="shortcuts-grid">
+            <div><kbd>↑</kbd> / <kbd>PgUp</kbd><span>Previous page</span></div>
+            <div><kbd>↓</kbd> / <kbd>PgDn</kbd> / <kbd>Space</kbd><span>Next page</span></div>
+            <div><kbd>Home</kbd> / <kbd>End</kbd><span>First / Last page</span></div>
+            <div><kbd>Ctrl</kbd> + <kbd>+</kbd> / <kbd>-</kbd><span>Zoom in / out</span></div>
+            <div><kbd>Ctrl</kbd> + <kbd>Wheel</kbd><span>Smooth cursor zoom</span></div>
+            <div><kbd>Ctrl</kbd> + <kbd>0</kbd><span>Fit to width</span></div>
+            <div><kbd>Ctrl</kbd> + <kbd>9</kbd><span>Fit to page</span></div>
+            <div><kbd>R</kbd> / <kbd>Shift</kbd>+<kbd>R</kbd><span>Rotate CW / CCW</span></div>
+            <div><kbd>S</kbd><span>Toggle two-page view</span></div>
+            <div><kbd>H</kbd><span>Toggle Hand pan tool</span></div>
+            <div><kbd>Ctrl</kbd> + <kbd>F</kbd><span>Find in document</span></div>
+            <div><kbd>Ctrl</kbd> + <kbd>D</kbd><span>Cycle reading theme</span></div>
+            <div><kbd>Ctrl</kbd> + <kbd>B</kbd> / <kbd>F4</kbd><span>Toggle sidebar</span></div>
+            <div><kbd>Ctrl</kbd> + <kbd>M</kbd><span>Bookmark current page</span></div>
+            <div><kbd>Ctrl</kbd> + <kbd>P</kbd><span>Print document</span></div>
+            <div><kbd>F11</kbd><span>Fullscreen presentation</span></div>
+          </div>
+        </div>
+        <div class="dialog-footer">
+          <button id="shortcuts-ok" class="btn wide primary-mini-btn">Got it</button>
+        </div>
+      </div>
+    </div>
   </div>
 </body>
 </html>
