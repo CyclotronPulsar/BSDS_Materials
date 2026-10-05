@@ -1,8 +1,6 @@
 /**
- * Lumina PDF Web – Chrome-Grade Core Viewer
+ * Lumina PDF Web – Chrome-Grade Core Viewer (No Annotations)
  * Compatible with PDF.js 3.11.174 (cdnjs)
- * Drop into BSDS_Materials and open via viewer.html?file=...
- * Preserves 100% of original Lumina features + adds full Chrome PDF Viewer parity.
  */
 
 (() => {
@@ -49,14 +47,6 @@
     searchPrev: $('btn-search-prev'),
     searchNext: $('btn-search-next'),
     searchMarkers: $('search-markers'),
-    drawHighlightBtn: $('btn-draw-highlight'),
-    drawPenBtn: $('btn-draw-pen'),
-    drawEraserBtn: $('btn-draw-eraser'),
-    annotBar: $('annot-bar'),
-    annotModeLabel: $('annot-mode-label'),
-    annotSize: $('annot-size'),
-    annotUndoBtn: $('btn-annot-undo'),
-    annotDoneBtn: $('btn-annot-done'),
     theme: $('btn-theme'),
     themeMenu: $('theme-menu'),
     sidebarBtn: $('btn-sidebar'),
@@ -67,8 +57,6 @@
     moreMenu: $('more-menu'),
     menuTwoPage: $('menu-two-page'),
     checkTwoPage: $('check-two-page'),
-    menuAnnotations: $('menu-annotations'),
-    checkAnnotations: $('check-annotations'),
     menuPresent: $('menu-present'),
     menuFirstPage: $('menu-first-page'),
     menuLastPage: $('menu-last-page'),
@@ -84,7 +72,6 @@
     bookmarksList: $('bookmarks-list'),
     viewerWrap: $('viewer-wrap'),
     viewer: $('viewer'),
-    readingProgress: $('reading-progress'),
     fabFit: $('fab-fit'),
     fabZoomIn: $('fab-zoom-in'),
     fabZoomOut: $('fab-zoom-out'),
@@ -128,12 +115,6 @@
     baseViewport: null,
     observer: null,
     thumbObserver: null,
-    // Annotation state
-    drawTool: null, // null | 'highlight' | 'pen'
-    drawColor: '#facc15',
-    drawSize: 14,
-    showAnnotations: true,
-    annotations: {}, // { [pageNum]: Array<{ tool, color, size, points: Array<{x,y}> }> }
     bookmarks: [], // Array<{ page, label, createdAt }>
   };
 
@@ -159,13 +140,6 @@
     if (state.spreadMode) parts.push('2-Page');
     parts.push(state.theme);
     els.statusMeta.textContent = parts.join(' · ');
-
-    if (els.readingProgress) {
-      const pct = state.pageCount > 1
-        ? ((state.currentPage - 1) / (state.pageCount - 1)) * 100
-        : 100;
-      els.readingProgress.style.width = `${clamp(pct, 0, 100)}%`;
-    }
   }
 
   function setTitle(name) {
@@ -258,7 +232,7 @@
   }
 
   // --------------------------------------------------
-  // Persistent Bookmarks & Annotations per PDF
+  // Persistent Bookmarks per PDF
   // --------------------------------------------------
   function loadSavedStateForFile(fileKey) {
     state.fileKey = fileKey;
@@ -268,12 +242,6 @@
     } catch {
       state.bookmarks = [];
     }
-    try {
-      const rawAnnot = localStorage.getItem(`lumina-annots:${fileKey}`);
-      state.annotations = rawAnnot ? JSON.parse(rawAnnot) : {};
-    } catch {
-      state.annotations = {};
-    }
     renderBookmarksList();
     updateBookmarkStar();
   }
@@ -282,13 +250,6 @@
     if (!state.fileKey) return;
     try {
       localStorage.setItem(`lumina-bookmarks:${state.fileKey}`, JSON.stringify(state.bookmarks));
-    } catch {}
-  }
-
-  function saveAnnotations() {
-    if (!state.fileKey) return;
-    try {
-      localStorage.setItem(`lumina-annots:${state.fileKey}`, JSON.stringify(state.annotations));
     } catch {}
   }
 
@@ -374,7 +335,6 @@
         canvas: null,
         textLayer: null,
         linkLayer: null,
-        annotLayer: null,
         container: null,
         renderedScale: 0,
         renderedRotation: -1,
@@ -419,130 +379,13 @@
     linkLayer.className = 'linkLayer';
     page.appendChild(linkLayer);
 
-    const annotLayer = document.createElement('canvas');
-    annotLayer.className = 'annotLayer' + (state.showAnnotations ? '' : ' hidden') + (state.drawTool ? ' drawing' : '');
-    page.appendChild(annotLayer);
-
     const ps = getPageState(n);
     ps.canvas = canvas;
     ps.textLayer = textLayer;
     ps.linkLayer = linkLayer;
-    ps.annotLayer = annotLayer;
     ps.container = page;
 
-    bindAnnotationEvents(n, annotLayer);
     return page;
-  }
-
-  // --------------------------------------------------
-  // Chrome Freehand Pen & Highlighter Layer
-  // --------------------------------------------------
-  function bindAnnotationEvents(pageNum, canvas) {
-    let drawing = false;
-    let currentStroke = null;
-
-    function getNormCoords(e) {
-      const rect = canvas.getBoundingClientRect();
-      const clientX = e.touches ? e.touches[0].clientX : e.clientX;
-      const clientY = e.touches ? e.touches[0].clientY : e.clientY;
-      return {
-        x: clamp((clientX - rect.left) / (rect.width || 1), 0, 1),
-        y: clamp((clientY - rect.top) / (rect.height || 1), 0, 1),
-      };
-    }
-
-    canvas.addEventListener('pointerdown', (e) => {
-      if (!state.drawTool) return;
-      e.preventDefault();
-      e.stopPropagation();
-      drawing = true;
-      canvas.setPointerCapture(e.pointerId);
-      const pt = getNormCoords(e);
-      currentStroke = {
-        tool: state.drawTool,
-        color: state.drawColor,
-        size: Number(state.drawSize) || (state.drawTool === 'highlight' ? 16 : 3),
-        points: [pt],
-      };
-      if (!state.annotations[pageNum]) state.annotations[pageNum] = [];
-      state.annotations[pageNum].push(currentStroke);
-      redrawAnnotations(pageNum);
-    });
-
-    canvas.addEventListener('pointermove', (e) => {
-      if (!drawing || !currentStroke) return;
-      e.preventDefault();
-      currentStroke.points.push(getNormCoords(e));
-      redrawAnnotations(pageNum);
-    });
-
-    const finishStroke = () => {
-      if (!drawing) return;
-      drawing = false;
-      currentStroke = null;
-      saveAnnotations();
-    };
-
-    canvas.addEventListener('pointerup', finishStroke);
-    canvas.addEventListener('pointercancel', finishStroke);
-  }
-
-  function redrawAnnotations(pageNum) {
-    const ps = getPageState(pageNum);
-    const canvas = ps.annotLayer;
-    if (!canvas) return;
-    const ctx = canvas.getContext('2d');
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-    const strokes = state.annotations[pageNum];
-    if (!strokes || !strokes.length) return;
-
-    const w = canvas.width;
-    const h = canvas.height;
-    const scaleFactor = state.scale || 1;
-
-    for (const s of strokes) {
-      if (!s.points || !s.points.length) continue;
-      ctx.save();
-      ctx.beginPath();
-      ctx.strokeStyle = s.color || '#facc15';
-      ctx.lineWidth = (s.size || 6) * scaleFactor;
-      ctx.lineCap = s.tool === 'highlight' ? 'butt' : 'round';
-      ctx.lineJoin = 'round';
-      ctx.globalAlpha = s.tool === 'highlight' ? 0.36 : 0.92;
-
-      const first = s.points[0];
-      ctx.moveTo(first.x * w, first.y * h);
-      for (let i = 1; i < s.points.length; i++) {
-        ctx.lineTo(s.points[i].x * w, s.points[i].y * h);
-      }
-      if (s.points.length === 1) {
-        ctx.lineTo(first.x * w + 0.5, first.y * h + 0.5);
-      }
-      ctx.stroke();
-      ctx.restore();
-    }
-  }
-
-  function setDrawTool(tool) {
-    state.drawTool = state.drawTool === tool ? null : tool;
-    if (els.drawHighlightBtn) els.drawHighlightBtn.classList.toggle('active', state.drawTool === 'highlight');
-    if (els.drawPenBtn) els.drawPenBtn.classList.toggle('active', state.drawTool === 'pen');
-    if (els.annotBar) els.annotBar.classList.toggle('hidden', !state.drawTool);
-
-    if (state.drawTool === 'highlight') {
-      if (els.annotModeLabel) els.annotModeLabel.textContent = 'Highlighter Tool';
-      state.drawSize = 16;
-      if (els.annotSize) els.annotSize.value = '16';
-    } else if (state.drawTool === 'pen') {
-      if (els.annotModeLabel) els.annotModeLabel.textContent = 'Pen Drawing Tool';
-      state.drawSize = 3;
-      if (els.annotSize) els.annotSize.value = '3';
-    }
-
-    document.querySelectorAll('.annotLayer').forEach((layer) => {
-      layer.classList.toggle('drawing', Boolean(state.drawTool));
-    });
   }
 
   // --------------------------------------------------
@@ -804,14 +647,6 @@
         canvas.style.width = viewport.width + 'px';
         canvas.style.height = viewport.height + 'px';
 
-        // Sync annotation canvas dimensions
-        if (ps.annotLayer) {
-          ps.annotLayer.width = Math.floor(viewport.width);
-          ps.annotLayer.height = Math.floor(viewport.height);
-          ps.annotLayer.style.width = viewport.width + 'px';
-          ps.annotLayer.style.height = viewport.height + 'px';
-        }
-
         // Apply current theme class
         canvas.classList.remove('invert', 'sepia', 'amoled', 'eye-comfort', 'smart-dark');
         if (['invert', 'sepia', 'amoled', 'eye-comfort', 'smart-dark'].includes(state.theme)) {
@@ -839,7 +674,6 @@
 
         await buildTextLayer(pageNum, page, viewport);
         await buildLinkLayer(pageNum, page, viewport);
-        redrawAnnotations(pageNum);
 
         ps.renderedScale = state.scale;
         ps.renderedRotation = state.rotation;
@@ -1682,7 +1516,7 @@
 
     // Hand tool drag-to-pan implementation
     els.viewerWrap?.addEventListener('mousedown', (e) => {
-      if ((!state.handTool && !state.spacePressed) || state.drawTool) return;
+      if (!state.handTool && !state.spacePressed) return;
       if (e.button !== 0) return;
       state.isPanning = true;
       els.viewerWrap.classList.add('panning');
@@ -1745,38 +1579,6 @@
     els.searchPrev?.addEventListener('click', () => jumpMatch(-1));
     els.searchNext?.addEventListener('click', () => jumpMatch(1));
 
-    // Annotation Controls
-    els.drawHighlightBtn?.addEventListener('click', () => setDrawTool('highlight'));
-    els.drawPenBtn?.addEventListener('click', () => setDrawTool('pen'));
-    els.drawEraserBtn?.addEventListener('click', () => {
-      if (state.annotations[state.currentPage]?.length) {
-        delete state.annotations[state.currentPage];
-        saveAnnotations();
-        redrawAnnotations(state.currentPage);
-        setStatus(`Cleared annotations on page ${state.currentPage}`);
-      } else {
-        setStatus(`No annotations on page ${state.currentPage}`);
-      }
-    });
-    document.querySelectorAll('.color-swatch').forEach((sw) => {
-      sw.addEventListener('click', () => {
-        document.querySelectorAll('.color-swatch').forEach((s) => s.classList.remove('active'));
-        sw.classList.add('active');
-        state.drawColor = sw.dataset.color || '#facc15';
-      });
-    });
-    els.annotSize?.addEventListener('input', () => {
-      state.drawSize = Number(els.annotSize.value) || 10;
-    });
-    els.annotUndoBtn?.addEventListener('click', () => {
-      const list = state.annotations[state.currentPage];
-      if (list && list.length) {
-        list.pop();
-        saveAnnotations();
-        redrawAnnotations(state.currentPage);
-      }
-    });
-    els.annotDoneBtn?.addEventListener('click', () => setDrawTool(null));
 
     // Theme cycler + right-click menu
     els.theme?.addEventListener('click', () => {
@@ -1875,14 +1677,6 @@
     });
     els.menuTwoPage?.addEventListener('click', () => {
       toggleSpreadMode();
-      closeAllDropdowns();
-    });
-    els.menuAnnotations?.addEventListener('click', () => {
-      state.showAnnotations = !state.showAnnotations;
-      if (els.checkAnnotations) els.checkAnnotations.textContent = state.showAnnotations ? '✓' : '';
-      document.querySelectorAll('.annotLayer').forEach((el) => {
-        el.classList.toggle('hidden', !state.showAnnotations);
-      });
       closeAllDropdowns();
     });
     els.menuPresent?.addEventListener('click', () => {
@@ -1998,7 +1792,6 @@
         closeAllDropdowns();
         els.propsBackdrop?.classList.add('hidden');
         els.shortcutsBackdrop?.classList.add('hidden');
-        if (state.drawTool) setDrawTool(null);
         if (document.fullscreenElement) document.exitFullscreen();
         return;
       }

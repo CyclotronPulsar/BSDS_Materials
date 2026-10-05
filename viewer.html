@@ -14,10 +14,6 @@
 </head>
 <body>
   <div id="app" class="app">
-    <!-- Top Reading Progress Line -->
-    <div id="reading-progress-wrap" class="reading-progress-wrap" aria-hidden="true">
-      <div id="reading-progress" class="reading-progress"></div>
-    </div>
 
     <!-- Chrome + Lumina Unified Toolbar -->
     <header class="toolbar" role="toolbar" aria-label="PDF controls">
@@ -129,7 +125,7 @@
         </button>
       </div>
 
-      <!-- Right: Search, Chrome Annotations, Theme Switcher, Fullscreen, Download, Print, More Menu -->
+      <!-- Right: Search, Theme Switcher, Fullscreen, Download, Print, More Menu -->
       <div class="toolbar-right">
         <div class="search-box" id="search-box">
           <svg class="search-icon" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2">
@@ -141,31 +137,6 @@
           <span id="search-count" class="search-count" aria-live="polite"></span>
           <button id="btn-search-prev" class="btn icon" title="Previous match (Shift+Enter)" aria-label="Previous match">‹</button>
           <button id="btn-search-next" class="btn icon" title="Next match (Enter)" aria-label="Next match">›</button>
-        </div>
-
-        <!-- Chrome PDF Viewer Annotation Tools -->
-        <div class="annot-group" role="group" aria-label="Annotation tools">
-          <button id="btn-draw-highlight" class="btn icon-btn" title="Highlighter tool" aria-label="Highlighter">
-            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-              <path d="m9 11-6 6v3h9l3-3" />
-              <path d="m22 12-4.6 4.6a2 2 0 0 1-2.8 0l-5.2-5.2a2 2 0 0 1 0-2.8L14 4" />
-            </svg>
-          </button>
-          <button id="btn-draw-pen" class="btn icon-btn" title="Draw / Pen tool" aria-label="Draw">
-            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-              <path d="M12 19l7-7 3 3-7 7-3-3z" />
-              <path d="M18 13l-1.5-7.5L2 2l3.5 14.5L13 18l5-5z" />
-              <path d="M2 2l7.586 7.586" />
-              <circle cx="11" cy="11" r="2" />
-            </svg>
-          </button>
-          <button id="btn-draw-eraser" class="btn icon-btn" title="Clear annotations on current page" aria-label="Erase page annotations">
-            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-              <path d="m7 21-4.3-4.3c-1-1-1-2.5 0-3.4l9.6-9.6c1-1 2.5-1 3.4 0l5.6 5.6c1 1 1 2.5 0 3.4L13 21" />
-              <path d="M22 21H7" />
-              <path d="m5 11 9 9" />
-            </svg>
-          </button>
         </div>
 
         <!-- Theme Cycler & Picker -->
@@ -217,10 +188,6 @@
               <span>Two-page view</span>
               <span id="check-two-page" class="menu-check"></span>
             </button>
-            <button type="button" id="menu-annotations" class="dropdown-item">
-              <span>Show annotations</span>
-              <span id="check-annotations" class="menu-check">✓</span>
-            </button>
             <button type="button" id="menu-present" class="dropdown-item">
               <span>Presentation mode</span>
               <span class="menu-shortcut">F11</span>
@@ -247,24 +214,6 @@
         </div>
       </div>
     </header>
-
-    <!-- Secondary Annotation Color/Size Bar (shown when Pen or Highlighter is active) -->
-    <div id="annot-bar" class="annot-bar hidden" role=" region" aria-label="Annotation settings">
-      <span id="annot-mode-label" class="annot-mode-label">Highlighter Active</span>
-      <div class="annot-colors">
-        <button type="button" class="color-swatch active" data-color="#facc15" style="background:#facc15" title="Yellow"></button>
-        <button type="button" class="color-swatch" data-color="#4ade80" style="background:#4ade80" title="Green"></button>
-        <button type="button" class="color-swatch" data-color="#38bdf8" style="background:#38bdf8" title="Cyan"></button>
-        <button type="button" class="color-swatch" data-color="#f472b6" style="background:#f472b6" title="Pink"></button>
-        <button type="button" class="color-swatch" data-color="#ef4444" style="background:#ef4444" title="Red"></button>
-      </div>
-      <label class="annot-size-label">
-        Size
-        <input id="annot-size" type="range" min="2" max="28" value="14" />
-      </label>
-      <button type="button" id="btn-annot-undo" class="btn wide subtle-btn">Undo Stroke</button>
-      <button type="button" id="btn-annot-done" class="btn wide primary-mini-btn">Done</button>
-    </div>
 
     <!-- Main area -->
     <div class="main">
