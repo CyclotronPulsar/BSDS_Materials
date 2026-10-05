@@ -105,7 +105,7 @@
     isPanning: false,
     panStart: { x: 0, y: 0, scrollLeft: 0, scrollTop: 0 },
     theme: localStorage.getItem('lumina-theme') || 'dark',
-    sidebarOpen: window.innerWidth > 1100,
+    sidebarOpen: false,
     searchTerm: '',
     matchCase: false,
     searchMatches: [], // {page, start, end}
